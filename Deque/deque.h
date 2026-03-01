@@ -3,54 +3,56 @@
 
 #include <cstddef>
 #include <cstdio>
+#include <initializer_list>
+#include <iterator>
 #include <type_traits>
 namespace bauyr {
 template <typename T>
 class Deque {
-  using value_type = T;
-  using size_type = size_t;
-  using reference_type = value_type&;
-  using pointer_type = value_type*;
-
-  static_assert((std::is_copy_assignable_v<T> && std::is_copy_constructible_v<T>) &&
-                "Deque support only CopyAssignable and CopyConstructible types");
-  static const size_type chunck_size{32};
-
- private:
-  Deque(const size_type size_, size_type chunk_number);
-
  public:
-  // Iterators
-  template <bool IsPrivate>
+  using size_type = size_t;
+  using reference = T&;
+  using const_reference = const T&;
+  using pointer = T*;
+
+  template <bool IsConst>
   class base_iterator {};
 
-  // Constructors
+  using iterator = base_iterator<false>;
+  using const_iterator = base_iterator<true>;
+
   Deque();
-  Deque(const size_type size_, const T& value);
-  Deque(const Deque<T>& deque);
+  Deque(const Deque&);
+  Deque(const int size_, const T& value);
+  Deque(std::initializer_list<T>);
+
   ~Deque();
+  Deque& operator=(const Deque&);
+  Deque& operator=(std::initializer_list<T>);
 
-  // Operators
-  Deque& operator=(const Deque& other);
+  iterator begin() noexcept;
+  const_iterator cbegin() const noexcept;
+  iterator end() noexcept;
+  const_iterator cend() const noexcept;
 
-  // Methods
-  T& at(size_type pos);
-  const T& at(size_type pos) const;
+  bool empty() const noexcept;
+  size_type size();
+  reference operator[](size_type index);
+  const_reference operator[](size_type index) const;
+  reference at(size_type index);
+  const_reference at(size_type index) const;
+  reference front();
+  const_reference front() const;
+  reference back();
+  const_reference backI() const;
 
-  size_type size() const;
-  
-  T& operator[](size_type pos);
-  T& operator[](size_type pos) const;
-
- private:
-  const size_type CHUNK_SIZE = 32;
-  size_t size_;
-  size_type chunk_number;
-  T** blocks;
-  T* first_chunk;
-  T* last_chunk;
-
-  bool check_range(size_t pos);
+  void push_front(const T& x);
+  void push_back(const T& x);
+  iterator insert(const_iterator position, const T& x);
+  void pop_back();
+  void pop_front();
+  void clear();
 };
+
 }  // namespace bauyr
 #endif  // end of DEQUE_H
