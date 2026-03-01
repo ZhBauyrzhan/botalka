@@ -1,5 +1,3 @@
-#include "deque.h"
-
 #include <algorithm>
 #include <cassert>
 #include <deque>
@@ -10,8 +8,8 @@
 #include <unordered_set>
 
 template <typename T>
-// using Deque = std::deque<T>;
-using Deque = bauyr::Deque<T>;
+using Deque = std::deque<T>;
+// using Deque = bauyr::Deque<T>;
 
 namespace TestsByMesyarik {
 
