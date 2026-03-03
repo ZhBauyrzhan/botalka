@@ -48,7 +48,7 @@ class Deque {
   Deque(std::initializer_list<T>);
 
   ~Deque();
-  Deque& operator=(const Deque&);
+  Deque& operator=(const Deque& other);
   Deque& operator=(std::initializer_list<T>);
 
   iterator begin() noexcept;
@@ -74,6 +74,9 @@ class Deque {
   void pop_front();
   void clear();
 
+  // TODO: Remove print blocks ???
+  void print_blocks();
+
  private:
   static const size_type CHUNK_SIZE{32};
   size_type size_;
@@ -86,6 +89,7 @@ class Deque {
 
   Deque(size_type size_, size_type number_of_blocks);
   void reallocate_blocks(size_type new_number_of_blocks);
+  void swap(Deque<T>& other);
 };
 
 }  // namespace bauyr
