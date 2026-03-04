@@ -678,8 +678,8 @@ int main() {
   // static_assert(!std::is_base_of_v<std::deque<VerySpecialType>,
   //         Deque<VerySpecialType>>, "You cannot use std::deque, cheater!");
 
-  TestsByMesyarik::test1();
-  // TestsByMesyarik::test2();
+  // TestsByMesyarik::test1();
+  TestsByMesyarik::test2();
   // TestsByMesyarik::test3();
   // TestsByMesyarik::test4();
   // TestsByMesyarik::test5();

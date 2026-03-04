@@ -45,6 +45,7 @@ class Deque {
   Deque();
   Deque(const Deque& other);
   Deque(const size_type size_, const T& value);
+  Deque(const size_type size_);
   Deque(std::initializer_list<T>);
 
   ~Deque();
@@ -79,6 +80,7 @@ class Deque {
 
  private:
   static const size_type CHUNK_SIZE{32};
+  static const size_type increase_coefficient{3};
   size_type size_;
   size_type number_of_blocks;
   chunk_type* blocks;
@@ -90,6 +92,12 @@ class Deque {
   Deque(size_type size_, size_type number_of_blocks);
   void reallocate_blocks(size_type new_number_of_blocks);
   void swap(Deque<T>& other);
+  std::pair<size_type, size_type> next_position(size_type cur_block_index,
+                                                size_type cur_elem_offset);
+  std::pair<size_type, size_type> previous_position(size_type cur_block_index,
+                                                    size_type cur_elem_offset);
+
+  chunk_type allocate_new_block();
 };
 
 }  // namespace bauyr

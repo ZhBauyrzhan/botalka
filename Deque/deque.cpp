@@ -5,6 +5,7 @@
 #include <iostream>
 #include <stdexcept>
 #include <type_traits>
+#include <utility>
 
 namespace bauyr {
 template <typename T>
@@ -63,6 +64,9 @@ Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator+=(d
 
 template <typename T>
 Deque<T>::Deque() : Deque(0ul, 0ul) {}
+
+template <typename T>
+Deque<T>::Deque(size_t size_) : Deque(size_, (size_ / CHUNK_SIZE + 1)) {}
 
 template <typename T>
 Deque<T>::Deque(size_type size_, size_type number_of_blocks)
@@ -161,6 +165,15 @@ Deque<T>::~Deque() {
 }
 
 template <typename T>
+Deque<T>& Deque<T>::operator=(const Deque<T>& other) {
+  if (this != &other) {
+    Deque tmp(other);
+    this->swap(tmp);
+  }
+  return *this;
+}
+
+template <typename T>
 Deque<T>::reference Deque<T>::operator[](size_type index) {
   auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
   auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
@@ -176,28 +189,126 @@ Deque<T>::const_reference Deque<T>::operator[](size_type index) const {
   return blocks[block_index][elem_offset];
 }
 
-
 template <typename T>
 Deque<T>::reference Deque<T>::at(size_type index) {
-  if(index >= size_)
-    throw std::out_of_range("Out of range in deque");
+  if (index >= size_) throw std::out_of_range("Out of range in deque");
   return this->operator[](index);
 }
 
 template <typename T>
 Deque<T>::const_reference Deque<T>::at(size_type index) const {
-  if(index >= size_)
-    throw std::out_of_range("Out of range in deque");
+  if (index >= size_) throw std::out_of_range("Out of range in deque");
   return this->operator[](index);
 }
 
 template <typename T>
-Deque<T>& Deque<T>::operator=(const Deque<T>& other) {
-  if (this != &other) {
-    Deque tmp(other);
-    this->swap(tmp);
+void Deque<T>::push_front(const T& x) {
+  if (first_block_index == 0 && first_elem_offset == 0) {
+    std::cout << "Trying to reallocate blocks" << std::endl;
+    reallocate_blocks(size_ * increase_coefficient);
   }
-  return *this;
+  std::cout << "Trying to put element" << ' ' << first_block_index << ' ' << first_elem_offset
+            << ' ' << number_of_blocks << std::endl;
+  if (first_elem_offset != 0) {
+    --first_elem_offset;
+  } else if (first_block_index != 0) {
+    --first_block_index;
+    if (!blocks[first_block_index]) {
+      blocks[first_block_index] = allocate_new_block();
+    }
+    std::cout << "M " << ' ' << first_block_index << ' ' << blocks[first_block_index] << std::endl;
+    first_elem_offset = CHUNK_SIZE - 1;
+  }
+  blocks[first_block_index][first_elem_offset] = x;
+  ++size_;
+}
+
+template <typename T>
+void Deque<T>::push_back(const T& x) {
+  // {number_of_blocks - 1, CHUNK_SIZE-1} is  for end() in the worst case
+  if (last_block_index == number_of_blocks - 1 && last_elem_offset == CHUNK_SIZE - 2) {
+    std::cout << "Trying to reallocate blocks" << std::endl;
+    reallocate_blocks(size_ * increase_coefficient);
+  }
+  std::cout << "Trying to put element" << ' ' << last_block_index << ' ' << last_elem_offset << ' '
+            << number_of_blocks << std::endl;
+  if (last_elem_offset != CHUNK_SIZE - 1) {
+    ++last_elem_offset;
+  } else if (last_block_index != number_of_blocks) {
+    ++last_block_index;
+    if (!blocks[last_block_index]) {
+      blocks[last_block_index] = allocate_new_block();
+    }
+    std::cout << "M " << ' ' << last_block_index << ' ' << blocks[last_block_index] << std::endl;
+    last_elem_offset = 0;
+  }
+  blocks[last_block_index][last_elem_offset] = x;
+  ++size_;
+}
+
+template <typename T>
+void Deque<T>::pop_front() {
+  std::pair<size_type, size_type> next_pos = next_position(first_block_index, first_elem_offset);
+  first_block_index = next_pos.first;
+  first_elem_offset = next_pos.second;
+  --size_;
+}
+
+template <typename T>
+void Deque<T>::pop_back() {
+  std::pair<size_type, size_type> prev_pos = previous_position(last_block_index, last_elem_offset);
+  last_block_index = prev_pos.first;
+  last_elem_offset = prev_pos.second;
+  --size_;
+}
+
+template <typename T>
+void Deque<T>::reallocate_blocks(size_type new_number_of_blocks) {
+  chunk_type* new_blocks = new chunk_type[new_number_of_blocks];
+  for (size_type i = 0; i < new_number_of_blocks; ++i) {
+    new_blocks[i] = nullptr;
+  }
+  size_type new_first_block_index = new_number_of_blocks / 3;
+  std::cout << number_of_blocks << "\n";
+  for (size_type i = 0; i < number_of_blocks; ++i) {
+    std::cout << blocks[first_block_index + i] << std::endl;
+    new_blocks[new_first_block_index + i] = blocks[first_block_index + i];
+  }
+  std::cout << "swapping" << std::endl;
+  std::cout << new_blocks << " " << blocks << std::endl;
+  last_block_index = new_first_block_index + number_of_blocks - 1;
+  std::swap(new_blocks, blocks);
+  std::swap(new_first_block_index, first_block_index);
+  std::swap(new_number_of_blocks, number_of_blocks);
+  delete[] new_blocks;
+}
+
+template <typename T>
+std::pair<typename Deque<T>::size_type, typename Deque<T>::size_type> Deque<T>::next_position(
+    size_type cur_block_index, size_type cur_elem_offset) {
+  ++cur_elem_offset;
+  if (cur_elem_offset == CHUNK_SIZE) {
+    cur_elem_offset = 0;
+    ++cur_block_index;
+  }
+  return {cur_block_index, cur_elem_offset};
+}
+
+template <typename T>
+std::pair<typename Deque<T>::size_type, typename Deque<T>::size_type> Deque<T>::previous_position(
+    size_type cur_block_index, size_type cur_elem_offset) {
+  if (cur_elem_offset == 0) {
+    cur_elem_offset = CHUNK_SIZE - 1;
+    --cur_block_index;
+  } else {
+    --cur_elem_offset;
+  }
+  return {cur_block_index, cur_elem_offset};
+}
+
+template <typename T>
+Deque<T>::chunk_type Deque<T>::allocate_new_block() {
+  return reinterpret_cast<chunk_type>(new char[(CHUNK_SIZE * sizeof(T))]);
 }
 
 template <typename T>
@@ -219,6 +330,7 @@ void Deque<T>::print_blocks() {
   }
   std::cout << std::endl;
 }
+
 }  // namespace bauyr
 template <typename T>
 using Deque = bauyr::Deque<T>;
@@ -261,6 +373,35 @@ void test1() {
 
   assert(s == ss);
 }
+
+void test2() {
+  Deque<int> d(1);
+
+  d[0] = 0;
+
+  d.print_blocks();
+
+  for (int i = 0; i < 8; ++i) {
+    d.push_back(i);
+    d.push_front(i);
+  }
+  d.print_blocks();
+  for (int i = 0; i < 12; ++i) {
+    d.pop_front();
+  }
+  d.pop_back();
+  d.print_blocks();
+  assert(d.size() == 4);
+
+  std::string ss;
+
+  for (size_t i = 0; i < d.size(); ++i) {
+    ss += std::to_string(d[i]);
+  }
+
+  assert(ss == "3456");
+}
+
 int main() {
   // Deque<int> d(10, 2);
   // std::cout << sizeof(d) << "\n";
@@ -272,5 +413,6 @@ int main() {
   //   }
   //   std::cout << d[0];
   // }
-  test1();
+  // test1();
+  test2();
 }
