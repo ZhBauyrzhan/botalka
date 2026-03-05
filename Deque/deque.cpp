@@ -16,6 +16,11 @@ Deque<T>::base_iterator<IsConst>::base_iterator(typename base_iterator::pointer_
 
 template <typename T>
 template <bool IsConst>
+Deque<T>::base_iterator<IsConst>::base_iterator(const Deque<T>::base_iterator<IsConst>& other)
+    : block_ptr(other.block_ptr), current(other.current) {}
+
+template <typename T>
+template <bool IsConst>
 Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator++() {
   ++current;
   if (current == *block_ptr + CHUNK_SIZE) {
@@ -23,6 +28,46 @@ Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator++()
     current = *block_ptr;
   }
   return *this;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator--() {
+  --current;
+  if (current == *block_ptr) {
+    --block_ptr;
+    current = *block_ptr + CHUNK_SIZE - 1;
+  }
+  return *this;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator+(difference_type n) {
+  base_iterator<IsConst> tmp = *this;
+  tmp += n;
+  return tmp;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator-(difference_type n) {
+  base_iterator<IsConst> tmp = *this;
+  std::cout << "operator-  " << n << std::endl;
+  this->print();
+  tmp.print();
+  tmp -= n;
+  tmp.print();
+  std::cout << std::endl;
+  return tmp;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst>::difference_type Deque<T>::base_iterator<IsConst>::operator-(
+    const Deque<T>::base_iterator<IsConst>& other) const {
+  return ((block_ptr - other.block_ptr) * CHUNK_SIZE + (current - *block_ptr) -
+          (other.current - *other.block_ptr));
 }
 
 template <typename T>
@@ -48,7 +93,44 @@ bool Deque<T>::base_iterator<IsConst>::operator==(const base_iterator& other) co
 template <typename T>
 template <bool IsConst>
 bool Deque<T>::base_iterator<IsConst>::operator!=(const base_iterator& other) const {
-  return !(*this == other);
+  return current != other.current;
+}
+template <typename T>
+template <bool IsConst>
+bool Deque<T>::base_iterator<IsConst>::operator>(const base_iterator& other) const {
+  return (block_ptr > other.block_ptr || (block_ptr == other.block_ptr && current > other.current));
+}
+
+template <typename T>
+template <bool IsConst>
+bool Deque<T>::base_iterator<IsConst>::operator<(const base_iterator& other) const {
+  std::cout << (block_ptr < other.block_ptr) << ' ' << (block_ptr == other.block_ptr) << ' '
+            << (current < other.current) << std::endl;
+  std::cout << block_ptr << ' ' << other.block_ptr << ' ' << current << ' ' << other.current
+            << std::endl;
+
+  return (block_ptr < other.block_ptr || (block_ptr == other.block_ptr && current < other.current));
+}
+
+template <typename T>
+template <bool IsConst>
+bool Deque<T>::base_iterator<IsConst>::operator>=(const base_iterator& other) const {
+  return !(operator<(other));
+}
+
+template <typename T>
+template <bool IsConst>
+bool Deque<T>::base_iterator<IsConst>::operator<=(const base_iterator& other) const {
+  return !operator>(other);
+}
+
+template <typename T>
+template <bool IsConst>
+void Deque<T>::base_iterator<IsConst>::print() {
+  std::cout << "Printing iterator" << std::endl;
+  std::cout << "block_ptr " << block_ptr << std::endl;
+  std::cout << "current " << current << std::endl;
+  std::cout << "val " << *current << '\n' << std::endl;
 }
 
 template <typename T>
@@ -56,10 +138,39 @@ template <bool IsConst>
 Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator+=(difference_type n) {
   difference_type offset = current - *block_ptr;
   difference_type new_offset = offset + n;
-
-  block_ptr = block_ptr + (new_offset / CHUNK_SIZE);
-  current = block_ptr + new_offset % CHUNK_SIZE;
+  std::cout << "operator+= " << n << std::endl;
+  std::cout << "offset " << offset << std::endl;
+  std::cout << "new_offset " << new_offset << std::endl;
+  std::cout << "(new_offset / CHUNK_SIZE) " << (new_offset / (difference_type)CHUNK_SIZE) << std::endl;
+  std::cout << block_ptr << ' ' << current << std::endl;
+  block_ptr = block_ptr + (new_offset / (new_offset / (difference_type)CHUNK_SIZE));
+  current = *block_ptr + new_offset % (difference_type)CHUNK_SIZE;
+  std::cout << block_ptr << ' ' << current << std::endl;
   return *this;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator-=(difference_type n) {
+  // difference_type offset = current - *block_ptr;
+  // difference_type new_offset = offset - n;
+  // std::cout << "operator-= " << n << std::endl;
+  // std::cout << "offset " << offset << std::endl;
+  // std::cout << "new_offset " << new_offset << std::endl;
+  // std::cout << "(new_offset / CHUNK_SIZE) " << (new_offset / CHUNK_SIZE) << std::endl;
+  // std::cout << block_ptr << ' ' << current << std::endl;
+
+  // block_ptr = block_ptr - (new_offset / CHUNK_SIZE);
+  // if (new_offset % CHUNK_SIZE > offset) {
+  //   --block_ptr;
+  //   current = *block_ptr + CHUNK_SIZE - new_offset % CHUNK_SIZE + offset;
+  // } else {
+  //   current = *block_ptr + offset - new_offset % CHUNK_SIZE;
+  // }
+
+  // std::cout << block_ptr << ' ' << current << std::endl;
+  // return *this;
+  return operator+=(-n);
 }
 
 template <typename T>
@@ -153,6 +264,7 @@ Deque<T>::iterator Deque<T>::end() noexcept {
     ++block_ptr;
     elem_ptr = *block_ptr;
   }
+  // std::cout << "end() = " << block_ptr << ' ' << elem_ptr << std::endl;
   return iterator(block_ptr, elem_ptr);
 }
 
@@ -203,12 +315,21 @@ Deque<T>::const_reference Deque<T>::at(size_type index) const {
 
 template <typename T>
 void Deque<T>::push_front(const T& x) {
-  if (first_block_index == 0 && first_elem_offset == 0) {
-    std::cout << "Trying to reallocate blocks" << std::endl;
-    reallocate_blocks(size_ * increase_coefficient);
+  if (size_ == 0 && number_of_blocks == 0) {
+    std::cout << "First time reallocating in push front" << std::endl;
+    reallocate_blocks(3, true);
+    // print_vals();
+    std::cout << blocks[first_block_index] << std::endl;
+    blocks[first_block_index][first_elem_offset] = x;
+    ++size_;
+    return;
   }
-  std::cout << "Trying to put element" << ' ' << first_block_index << ' ' << first_elem_offset
-            << ' ' << number_of_blocks << std::endl;
+  if (first_block_index == 0 && first_elem_offset == 0) {
+    // std::cout << "Trying to reallocate blocks" << std::endl;
+    reallocate_blocks(number_of_blocks * increase_coefficient, false);
+  }
+  // std::cout << "Trying to push front element" << ' ' << first_block_index << ' '
+  // << first_elem_offset << ' ' << number_of_blocks << std::endl;
   if (first_elem_offset != 0) {
     --first_elem_offset;
   } else if (first_block_index != 0) {
@@ -216,7 +337,9 @@ void Deque<T>::push_front(const T& x) {
     if (!blocks[first_block_index]) {
       blocks[first_block_index] = allocate_new_block();
     }
-    std::cout << "M " << ' ' << first_block_index << ' ' << blocks[first_block_index] << std::endl;
+    // std::cout << "M " << ' ' << first_block_index << ' ' << blocks[first_block_index] <<
+    // std::endl; std::cout << "M2 " << blocks[first_block_index][CHUNK_SIZE - 1] << ' ' << x <<
+    // std::endl;
     first_elem_offset = CHUNK_SIZE - 1;
   }
   blocks[first_block_index][first_elem_offset] = x;
@@ -226,12 +349,19 @@ void Deque<T>::push_front(const T& x) {
 template <typename T>
 void Deque<T>::push_back(const T& x) {
   // {number_of_blocks - 1, CHUNK_SIZE-1} is  for end() in the worst case
+  if (size_ == 0 && number_of_blocks == 0) {
+    reallocate_blocks(3, true);
+    blocks[first_block_index][first_elem_offset] = x;
+    ++size_;
+    std::cout << "First time reallocating in push front" << std::endl;
+    return;
+  }
   if (last_block_index == number_of_blocks - 1 && last_elem_offset == CHUNK_SIZE - 2) {
     std::cout << "Trying to reallocate blocks" << std::endl;
-    reallocate_blocks(size_ * increase_coefficient);
+    reallocate_blocks(number_of_blocks * increase_coefficient, false);
   }
-  std::cout << "Trying to put element" << ' ' << last_block_index << ' ' << last_elem_offset << ' '
-            << number_of_blocks << std::endl;
+  std::cout << "Trying to push back element" << ' ' << last_block_index << ' ' << last_elem_offset
+            << ' ' << number_of_blocks << std::endl;
   if (last_elem_offset != CHUNK_SIZE - 1) {
     ++last_elem_offset;
   } else if (last_block_index != number_of_blocks) {
@@ -263,23 +393,39 @@ void Deque<T>::pop_back() {
 }
 
 template <typename T>
-void Deque<T>::reallocate_blocks(size_type new_number_of_blocks) {
+void Deque<T>::reallocate_blocks(size_type new_number_of_blocks, bool isFirstTime) {
   chunk_type* new_blocks = new chunk_type[new_number_of_blocks];
+  if (isFirstTime) {
+    for (size_type i = 0; i < new_number_of_blocks; ++i) {
+      new_blocks[i] = allocate_new_block();
+    }
+    std::swap(new_blocks, blocks);
+    number_of_blocks = new_number_of_blocks;
+    first_block_index = number_of_blocks / 3;
+    first_elem_offset = 0;
+    last_block_index = number_of_blocks / 3;
+    last_elem_offset = 0;
+    size_ = 0;
+    return;
+  }
   for (size_type i = 0; i < new_number_of_blocks; ++i) {
     new_blocks[i] = nullptr;
   }
   size_type new_first_block_index = new_number_of_blocks / 3;
   std::cout << number_of_blocks << "\n";
   for (size_type i = 0; i < number_of_blocks; ++i) {
-    std::cout << blocks[first_block_index + i] << std::endl;
+    // std::cout << blocks[first_block_index + i] << std::endl;
     new_blocks[new_first_block_index + i] = blocks[first_block_index + i];
   }
   std::cout << "swapping" << std::endl;
   std::cout << new_blocks << " " << blocks << std::endl;
-  last_block_index = new_first_block_index + number_of_blocks - 1;
+  last_block_index = new_first_block_index + last_block_index - first_block_index;
   std::swap(new_blocks, blocks);
   std::swap(new_first_block_index, first_block_index);
   std::swap(new_number_of_blocks, number_of_blocks);
+  // for (size_type i = 0; i < number_of_blocks; ++i) {
+  //   std::cout << "Block " << i << " : " << blocks[i] << std::endl;
+  // }
   delete[] new_blocks;
 }
 
@@ -329,6 +475,16 @@ void Deque<T>::print_blocks() {
     std::cout << i << ' ';
   }
   std::cout << std::endl;
+}
+
+template <typename T>
+void Deque<T>::print_vals() {
+  std::cout << "size_ " << size_ << std::endl;
+  std::cout << "number_of_blocks " << number_of_blocks << std::endl;
+  std::cout << "first_block_index " << first_block_index << std::endl;
+  std::cout << "first_elem_offset " << first_elem_offset << std::endl;
+  std::cout << "last_block_index " << last_block_index << std::endl;
+  std::cout << "last_elem_offset " << last_elem_offset << std::endl;
 }
 
 }  // namespace bauyr
@@ -402,6 +558,72 @@ void test2() {
   assert(ss == "3456");
 }
 
+void test3() {
+  Deque<int> d;
+
+  for (int i = 0; i < 1000; ++i) {
+    for (int j = 0; j < 1000; ++j) {
+      if (j % 3 == 2) {
+        d.pop_back();
+      } else {
+        d.push_front(i * j);
+      }
+    }
+  }
+  // int cnt = 0;
+  // for(int i = 1; i <= 10; ++i)
+  //   for(int j = 1; j <= 100; ++j)
+  //   d.push_front(++cnt);
+
+  // d.print_vals();
+  // d.print_blocks();
+
+  assert(d.size() == 334'000);
+
+  Deque<int>::iterator left = d.begin() + 100'000;
+  Deque<int>::iterator right = d.end() - 233'990;
+  std::cout << "AAAAAAAA\n";
+  left.print();
+  right.print();
+  while (d.begin() != left) d.pop_front();
+  // Deque<int>::iterator x = d.begin();
+  // x.print();
+  // Deque<int>::iterator y = d.end();
+  // --y;
+  // y.print();
+  while (d.end() != right) d.pop_back();
+
+  assert(d.size() == 10);
+
+  d.print_vals();
+  d.print_blocks();
+
+  assert(right - left == 10);
+
+  std::string s;
+  for (auto it = left; it != right; ++it) {
+    ++*it;
+  }
+
+  d.print_vals();
+  d.print_blocks();
+
+  std::cout << "Right";
+  right.print();
+  std::cout << "Left";
+  left.print();
+
+  int cnt = 20;
+  for (auto it = right - 1; it >= left; --it) {
+    it.print();
+    if (--cnt == 0) return;
+    std::cout << cnt << ' ' << s << std::endl;
+    s += std::to_string(*it);
+  }
+  std::cout << s << std::endl;
+  assert(s == "51001518515355154401561015695158651595016120162051");
+}
+
 int main() {
   // Deque<int> d(10, 2);
   // std::cout << sizeof(d) << "\n";
@@ -414,5 +636,6 @@ int main() {
   //   std::cout << d[0];
   // }
   // test1();
-  test2();
+  // test2();
+  test3();
 }

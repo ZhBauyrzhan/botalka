@@ -28,12 +28,26 @@ class Deque {
     using iterator_category = std::random_access_iterator_tag;
 
     base_iterator(pointer_to_chunk chunk_ptr, pointer_to_elem elem_ptr);
+    base_iterator(const base_iterator<IsConst>& other);
     base_iterator& operator++();
+    base_iterator& operator--();
     base_iterator& operator+=(difference_type n);
+    base_iterator& operator-=(difference_type n);
+    base_iterator operator+(difference_type n);
+    base_iterator operator-(difference_type n);
+    difference_type operator-(const base_iterator<IsConst>& other) const;
     base_iterator operator++(int);
+
     bool operator==(const base_iterator& other) const;
     bool operator!=(const base_iterator& other) const;
+    bool operator>(const base_iterator<IsConst>& other) const;
+    bool operator<(const base_iterator<IsConst>& other) const;
+    bool operator>=(const base_iterator<IsConst>& other) const;
+    bool operator<=(const base_iterator<IsConst>& other) const;
+
     reference operator*() const;
+
+    void print();
 
    private:
     pointer_to_chunk block_ptr;
@@ -75,8 +89,9 @@ class Deque {
   void pop_front();
   void clear();
 
-  // TODO: Remove print blocks ???
+  // TODO: Remove prints ???
   void print_blocks();
+  void print_vals();
 
  private:
   static const size_type CHUNK_SIZE{32};
@@ -90,7 +105,7 @@ class Deque {
   size_type last_elem_offset;
 
   Deque(size_type size_, size_type number_of_blocks);
-  void reallocate_blocks(size_type new_number_of_blocks);
+  void reallocate_blocks(size_type new_number_of_blocks, bool isFirstTime);
   void swap(Deque<T>& other);
   std::pair<size_type, size_type> next_position(size_type cur_block_index,
                                                 size_type cur_elem_offset);

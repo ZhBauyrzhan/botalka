@@ -94,7 +94,14 @@ void test3() {
 
   Deque<int>::iterator left = d.begin() + 100'000;
   Deque<int>::iterator right = d.end() - 233'990;
+
+  std::cout << *left << ' ' << *right << std::endl;
   while (d.begin() != left) d.pop_front();
+
+  Deque<int>::iterator y = d.end();
+  --y;
+  std::cout << *y << std::endl;
+
   while (d.end() != right) d.pop_back();
 
   assert(d.size() == 10);
@@ -105,7 +112,9 @@ void test3() {
   for (auto it = left; it != right; ++it) {
     ++*it;
   }
+
   for (auto it = right - 1; it >= left; --it) {
+    std::cout << s << std::endl;
     s += std::to_string(*it);
   }
 
@@ -679,8 +688,8 @@ int main() {
   //         Deque<VerySpecialType>>, "You cannot use std::deque, cheater!");
 
   // TestsByMesyarik::test1();
-  TestsByMesyarik::test2();
-  // TestsByMesyarik::test3();
+  // TestsByMesyarik::test2();
+  TestsByMesyarik::test3();
   // TestsByMesyarik::test4();
   // TestsByMesyarik::test5();
   // TestsByMesyarik::test6();
