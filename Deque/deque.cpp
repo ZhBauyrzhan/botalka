@@ -2,12 +2,14 @@
 
 #include <cassert>
 #include <cstddef>
+#include <cstdio>
 #include <iostream>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
 
 namespace bauyr {
+
 template <typename T>
 template <bool IsConst>
 Deque<T>::base_iterator<IsConst>::base_iterator(typename base_iterator::pointer_to_chunk block_ptr,
@@ -39,6 +41,30 @@ Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator--()
     current = *block_ptr + CHUNK_SIZE - 1;
   }
   return *this;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator+=(difference_type n) {
+  difference_type offset = current - *block_ptr;
+  difference_type new_offset = offset + n;
+  std::cout << "operator+= " << n << std::endl;
+  std::cout << "offset " << offset << std::endl;
+  std::cout << "new_offset " << new_offset << std::endl;
+  std::cout << "(new_offset / CHUNK_SIZE) " << (new_offset / (difference_type)CHUNK_SIZE)
+            << std::endl;
+  std::cout << block_ptr << ' ' << current << std::endl;
+  block_ptr = block_ptr + (new_offset / (new_offset / (difference_type)CHUNK_SIZE));
+  current = *block_ptr + new_offset % (difference_type)CHUNK_SIZE;
+  std::cout << block_ptr << ' ' << current << std::endl;
+  return *this;
+}
+
+template <typename T>
+template <bool IsConst>
+Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator-=(difference_type n) {
+  // TODO : Define this operator
+  return this->operator+=(-n);
 }
 
 template <typename T>
@@ -80,12 +106,6 @@ Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator++(in
 
 template <typename T>
 template <bool IsConst>
-Deque<T>::base_iterator<IsConst>::reference Deque<T>::base_iterator<IsConst>::operator*() const {
-  return *current;
-}
-
-template <typename T>
-template <bool IsConst>
 bool Deque<T>::base_iterator<IsConst>::operator==(const base_iterator& other) const {
   return current == other.current;
 }
@@ -95,6 +115,7 @@ template <bool IsConst>
 bool Deque<T>::base_iterator<IsConst>::operator!=(const base_iterator& other) const {
   return current != other.current;
 }
+
 template <typename T>
 template <bool IsConst>
 bool Deque<T>::base_iterator<IsConst>::operator>(const base_iterator& other) const {
@@ -126,6 +147,12 @@ bool Deque<T>::base_iterator<IsConst>::operator<=(const base_iterator& other) co
 
 template <typename T>
 template <bool IsConst>
+Deque<T>::base_iterator<IsConst>::reference Deque<T>::base_iterator<IsConst>::operator*() const {
+  return *current;
+}
+template <typename T>
+template <bool IsConst>
+
 void Deque<T>::base_iterator<IsConst>::print() {
   std::cout << "Printing iterator" << std::endl;
   std::cout << "block_ptr " << block_ptr << std::endl;
@@ -134,76 +161,8 @@ void Deque<T>::base_iterator<IsConst>::print() {
 }
 
 template <typename T>
-template <bool IsConst>
-Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator+=(difference_type n) {
-  difference_type offset = current - *block_ptr;
-  difference_type new_offset = offset + n;
-  std::cout << "operator+= " << n << std::endl;
-  std::cout << "offset " << offset << std::endl;
-  std::cout << "new_offset " << new_offset << std::endl;
-  std::cout << "(new_offset / CHUNK_SIZE) " << (new_offset / (difference_type)CHUNK_SIZE) << std::endl;
-  std::cout << block_ptr << ' ' << current << std::endl;
-  block_ptr = block_ptr + (new_offset / (new_offset / (difference_type)CHUNK_SIZE));
-  current = *block_ptr + new_offset % (difference_type)CHUNK_SIZE;
-  std::cout << block_ptr << ' ' << current << std::endl;
-  return *this;
-}
-
-template <typename T>
-template <bool IsConst>
-Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator-=(difference_type n) {
-  // difference_type offset = current - *block_ptr;
-  // difference_type new_offset = offset - n;
-  // std::cout << "operator-= " << n << std::endl;
-  // std::cout << "offset " << offset << std::endl;
-  // std::cout << "new_offset " << new_offset << std::endl;
-  // std::cout << "(new_offset / CHUNK_SIZE) " << (new_offset / CHUNK_SIZE) << std::endl;
-  // std::cout << block_ptr << ' ' << current << std::endl;
-
-  // block_ptr = block_ptr - (new_offset / CHUNK_SIZE);
-  // if (new_offset % CHUNK_SIZE > offset) {
-  //   --block_ptr;
-  //   current = *block_ptr + CHUNK_SIZE - new_offset % CHUNK_SIZE + offset;
-  // } else {
-  //   current = *block_ptr + offset - new_offset % CHUNK_SIZE;
-  // }
-
-  // std::cout << block_ptr << ' ' << current << std::endl;
-  // return *this;
-  return operator+=(-n);
-}
-
-template <typename T>
 Deque<T>::Deque() : Deque(0ul, 0ul) {}
 
-template <typename T>
-Deque<T>::Deque(size_t size_) : Deque(size_, (size_ / CHUNK_SIZE + 1)) {}
-
-template <typename T>
-Deque<T>::Deque(size_type size_, size_type number_of_blocks)
-    : size_(size_), number_of_blocks(number_of_blocks), blocks(new chunk_type[number_of_blocks]) {
-  if (size_ == 0) {
-    first_block_index = 0;
-    first_elem_offset = 0;
-    last_block_index = 0;
-    last_elem_offset = 0;
-  } else {
-    first_block_index = number_of_blocks / 3;
-    first_elem_offset = 0;
-    last_block_index = first_block_index + size_ / CHUNK_SIZE;
-    last_elem_offset = (size_ - 1) % CHUNK_SIZE;
-    if (std::is_default_constructible_v<T>) {
-      for (size_type i = 0; i < number_of_blocks; ++i) blocks[i] = nullptr;
-      for (size_type i = first_block_index; i <= last_block_index; ++i) {
-        blocks[i] = new T[CHUNK_SIZE];
-      }
-    } else {
-      for (size_type i = first_block_index; i <= last_block_index; ++i) {
-        blocks[i] = static_cast<T*>(operator new(sizeof(T) * CHUNK_SIZE));
-      }
-    }
-  }
-}
 template <typename T>
 Deque<T>::Deque(const Deque& other)
     : size_(other.size_),
@@ -224,6 +183,7 @@ Deque<T>::Deque(const Deque& other)
       blocks[block_n][elem_offset] = other.blocks[block_n][elem_offset];
   }
 }
+
 template <typename T>
 Deque<T>::Deque(size_type size_, const T& value) : Deque(size_, size_ / CHUNK_SIZE + 1) {
   std::cout << first_block_index << ' ' << first_elem_offset << '\n';
@@ -234,6 +194,26 @@ Deque<T>::Deque(size_type size_, const T& value) : Deque(size_, size_ / CHUNK_SI
 }
 
 template <typename T>
+Deque<T>::Deque(size_t size_) : Deque(size_, (size_ / CHUNK_SIZE + 1)) {}
+
+template <typename T>
+Deque<T>::~Deque() {
+  for (size_type i = first_block_index; i <= last_block_index; ++i) {
+    delete[] blocks[i];
+  }
+  delete[] blocks;
+}
+
+template <typename T>
+Deque<T>& Deque<T>::operator=(const Deque<T>& other) {
+  if (this != &other) {
+    Deque tmp(other);
+    this->swap(tmp);
+  }
+  return *this;
+}
+
+template <typename T>
 bool Deque<T>::empty() const noexcept {
   return size_ == 0;
 }
@@ -241,6 +221,22 @@ bool Deque<T>::empty() const noexcept {
 template <typename T>
 Deque<T>::size_type Deque<T>::size() const {
   return size_;
+}
+
+template <typename T>
+Deque<T>::reference Deque<T>::operator[](size_type index) {
+  auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
+  auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
+  std::cout << block_index << ' ' << elem_offset << '\n';
+  return blocks[block_index][elem_offset];
+}
+
+template <typename T>
+Deque<T>::const_reference Deque<T>::operator[](size_type index) const {
+  auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
+  auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
+  std::cout << block_index << ' ' << elem_offset << '\n';
+  return blocks[block_index][elem_offset];
 }
 
 template <typename T>
@@ -266,39 +262,6 @@ Deque<T>::iterator Deque<T>::end() noexcept {
   }
   // std::cout << "end() = " << block_ptr << ' ' << elem_ptr << std::endl;
   return iterator(block_ptr, elem_ptr);
-}
-
-template <typename T>
-Deque<T>::~Deque() {
-  for (size_type i = first_block_index; i <= last_block_index; ++i) {
-    delete[] blocks[i];
-  }
-  delete[] blocks;
-}
-
-template <typename T>
-Deque<T>& Deque<T>::operator=(const Deque<T>& other) {
-  if (this != &other) {
-    Deque tmp(other);
-    this->swap(tmp);
-  }
-  return *this;
-}
-
-template <typename T>
-Deque<T>::reference Deque<T>::operator[](size_type index) {
-  auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
-  auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
-  std::cout << block_index << ' ' << elem_offset << '\n';
-  return blocks[block_index][elem_offset];
-}
-
-template <typename T>
-Deque<T>::const_reference Deque<T>::operator[](size_type index) const {
-  auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
-  auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
-  std::cout << block_index << ' ' << elem_offset << '\n';
-  return blocks[block_index][elem_offset];
 }
 
 template <typename T>
@@ -377,6 +340,14 @@ void Deque<T>::push_back(const T& x) {
 }
 
 template <typename T>
+void Deque<T>::pop_back() {
+  std::pair<size_type, size_type> prev_pos = previous_position(last_block_index, last_elem_offset);
+  last_block_index = prev_pos.first;
+  last_elem_offset = prev_pos.second;
+  --size_;
+}
+
+template <typename T>
 void Deque<T>::pop_front() {
   std::pair<size_type, size_type> next_pos = next_position(first_block_index, first_elem_offset);
   first_block_index = next_pos.first;
@@ -385,11 +356,47 @@ void Deque<T>::pop_front() {
 }
 
 template <typename T>
-void Deque<T>::pop_back() {
-  std::pair<size_type, size_type> prev_pos = previous_position(last_block_index, last_elem_offset);
-  last_block_index = prev_pos.first;
-  last_elem_offset = prev_pos.second;
-  --size_;
+void Deque<T>::print_blocks() {
+  for (auto& i : *this) {
+    std::cout << i << ' ';
+  }
+  std::cout << std::endl;
+}
+
+template <typename T>
+void Deque<T>::print_vals() {
+  std::cout << "size_ " << size_ << std::endl;
+  std::cout << "number_of_blocks " << number_of_blocks << std::endl;
+  std::cout << "first_block_index " << first_block_index << std::endl;
+  std::cout << "first_elem_offset " << first_elem_offset << std::endl;
+  std::cout << "last_block_index " << last_block_index << std::endl;
+  std::cout << "last_elem_offset " << last_elem_offset << std::endl;
+}
+
+template <typename T>
+Deque<T>::Deque(size_type size_, size_type number_of_blocks)
+    : size_(size_), number_of_blocks(number_of_blocks), blocks(new chunk_type[number_of_blocks]) {
+  if (size_ == 0) {
+    first_block_index = 0;
+    first_elem_offset = 0;
+    last_block_index = 0;
+    last_elem_offset = 0;
+  } else {
+    first_block_index = number_of_blocks / 3;
+    first_elem_offset = 0;
+    last_block_index = first_block_index + size_ / CHUNK_SIZE;
+    last_elem_offset = (size_ - 1) % CHUNK_SIZE;
+    if (std::is_default_constructible_v<T>) {
+      for (size_type i = 0; i < number_of_blocks; ++i) blocks[i] = nullptr;
+      for (size_type i = first_block_index; i <= last_block_index; ++i) {
+        blocks[i] = new T[CHUNK_SIZE];
+      }
+    } else {
+      for (size_type i = first_block_index; i <= last_block_index; ++i) {
+        blocks[i] = static_cast<T*>(operator new(sizeof(T) * CHUNK_SIZE));
+      }
+    }
+  }
 }
 
 template <typename T>
@@ -430,6 +437,18 @@ void Deque<T>::reallocate_blocks(size_type new_number_of_blocks, bool isFirstTim
 }
 
 template <typename T>
+void Deque<T>::swap(Deque<T>& other) {
+  using std::swap;
+  swap(size_, other.size_);
+  swap(number_of_blocks, other.number_of_blocks);
+  swap(blocks, other.blocks);
+  swap(first_block_index, other.first_block_index);
+  swap(first_elem_offset, other.first_elem_offset);
+  swap(last_block_index, other.last_block_index);
+  swap(last_elem_offset, other.last_elem_offset);
+}
+
+template <typename T>
 std::pair<typename Deque<T>::size_type, typename Deque<T>::size_type> Deque<T>::next_position(
     size_type cur_block_index, size_type cur_elem_offset) {
   ++cur_elem_offset;
@@ -455,36 +474,6 @@ std::pair<typename Deque<T>::size_type, typename Deque<T>::size_type> Deque<T>::
 template <typename T>
 Deque<T>::chunk_type Deque<T>::allocate_new_block() {
   return reinterpret_cast<chunk_type>(new char[(CHUNK_SIZE * sizeof(T))]);
-}
-
-template <typename T>
-void Deque<T>::swap(Deque<T>& other) {
-  using std::swap;
-  swap(size_, other.size_);
-  swap(number_of_blocks, other.number_of_blocks);
-  swap(blocks, other.blocks);
-  swap(first_block_index, other.first_block_index);
-  swap(first_elem_offset, other.first_elem_offset);
-  swap(last_block_index, other.last_block_index);
-  swap(last_elem_offset, other.last_elem_offset);
-}
-
-template <typename T>
-void Deque<T>::print_blocks() {
-  for (auto& i : *this) {
-    std::cout << i << ' ';
-  }
-  std::cout << std::endl;
-}
-
-template <typename T>
-void Deque<T>::print_vals() {
-  std::cout << "size_ " << size_ << std::endl;
-  std::cout << "number_of_blocks " << number_of_blocks << std::endl;
-  std::cout << "first_block_index " << first_block_index << std::endl;
-  std::cout << "first_elem_offset " << first_elem_offset << std::endl;
-  std::cout << "last_block_index " << last_block_index << std::endl;
-  std::cout << "last_elem_offset " << last_elem_offset << std::endl;
 }
 
 }  // namespace bauyr
@@ -637,5 +626,7 @@ int main() {
   // }
   // test1();
   // test2();
-  test3();
+  test1();
+  test2();
+  // test4();
 }
