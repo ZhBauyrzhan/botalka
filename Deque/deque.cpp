@@ -421,15 +421,8 @@ Deque<T>::Deque(size_type size_, size_type number_of_blocks)
     first_elem_offset = 0;
     last_block_index = first_block_index + size_ / CHUNK_SIZE;
     last_elem_offset = (size_ - 1) % CHUNK_SIZE;
-    if (std::is_default_constructible_v<T>) {
-      for (size_type i = 0; i < number_of_blocks; ++i) blocks[i] = nullptr;
-      for (size_type i = first_block_index; i <= last_block_index; ++i) {
-        blocks[i] = new T[CHUNK_SIZE];
-      }
-    } else {
-      for (size_type i = first_block_index; i <= last_block_index; ++i) {
-        blocks[i] = static_cast<T*>(operator new(sizeof(T) * CHUNK_SIZE));
-      }
+    for (size_type i = first_block_index; i <= last_block_index; ++i) {
+      blocks[i] = allocate_new_block();
     }
   }
 }
@@ -692,6 +685,48 @@ void test5() {
   assert(s == "4321");
   std::cout << "Test5 passed" << std::endl;
 }
+struct VerySpecialType {
+  int x = 0;
+
+  explicit VerySpecialType(int x) : x(x) {}
+};
+
+struct NotDefaultConstructible {
+  NotDefaultConstructible() = delete;
+  NotDefaultConstructible(const NotDefaultConstructible&) = default;
+  NotDefaultConstructible& operator=(const NotDefaultConstructible&) = default;
+
+  NotDefaultConstructible(VerySpecialType v) : x(v.x) {}
+
+ public:
+  int x = 0;
+};
+
+void test6() {
+  Deque<NotDefaultConstructible> d;
+
+  NotDefaultConstructible ndc = VerySpecialType(-1);
+
+  for (int i = 0; i < 1500; ++i) {
+    ++ndc.x;
+    d.push_back(ndc);
+  }
+
+  assert(d.size() == 1500);
+
+  for (int i = 0; i < 1300; ++i) {
+    d.pop_front();
+  }
+
+  assert(d.size() == 200);
+
+  assert(d[99].x == 1399);
+
+  d[100] = VerySpecialType(0);
+  assert(d[100].x == 0);
+
+  std::cout << "Test6 passed" << std::endl;
+}
 
 int main() {
   test1();
@@ -699,4 +734,5 @@ int main() {
   test3();
   test4();
   test5();
+  test6();
 }
