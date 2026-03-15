@@ -95,12 +95,12 @@ void test3() {
   Deque<int>::iterator left = d.begin() + 100'000;
   Deque<int>::iterator right = d.end() - 233'990;
 
-  std::cout << *left << ' ' << *right << std::endl;
+  // std::cout << *left << ' ' << *right << std::endl;
   while (d.begin() != left) d.pop_front();
 
-  Deque<int>::iterator y = d.end();
-  --y;
-  std::cout << *y << std::endl;
+  // Deque<int>::iterator y = d.end();
+  // --y;
+  // std::cout << *y << std::endl;
 
   while (d.end() != right) d.pop_back();
 
