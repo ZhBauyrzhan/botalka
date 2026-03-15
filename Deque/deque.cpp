@@ -1,6 +1,7 @@
 #include "deque.h"
 
 #include <cassert>
+#include <chrono>
 #include <climits>
 #include <cstddef>
 #include <cstdio>
@@ -304,10 +305,14 @@ void Deque<T>::push_front(const T& x) {
   }
   if (first_block_index == 0 && first_elem_offset == 0) {
     reallocate_blocks(number_of_blocks * increase_coefficient, false);
-  }
-  if (first_elem_offset != 0) {
+    --first_block_index;
+    if (!blocks[first_block_index]) {
+      blocks[first_block_index] = allocate_new_block();
+    }
+    first_elem_offset = CHUNK_SIZE - 1;
+  } else if (first_elem_offset != 0) {
     --first_elem_offset;
-  } else if (first_block_index != 0) {
+  } else {
     --first_block_index;
     if (!blocks[first_block_index]) {
       blocks[first_block_index] = allocate_new_block();
@@ -320,24 +325,27 @@ void Deque<T>::push_front(const T& x) {
 
 template <typename T>
 void Deque<T>::push_back(const T& x) {
-  // {number_of_blocks - 1, CHUNK_SIZE-1} is  for end() in the worst case
   if (size_ == 0 && number_of_blocks == 0) {
     reallocate_blocks(3, true);
     blocks[first_block_index][first_elem_offset] = x;
     ++size_;
     return;
   }
-  if (last_block_index == number_of_blocks - 1 && last_elem_offset == CHUNK_SIZE - 2) {
+  if (last_block_index == number_of_blocks - 1 && last_elem_offset == CHUNK_SIZE - 1) {
     reallocate_blocks(number_of_blocks * increase_coefficient, false);
-  }
-  if (last_elem_offset != CHUNK_SIZE - 1) {
-    ++last_elem_offset;
-  } else if (last_block_index != number_of_blocks) {
     ++last_block_index;
     if (!blocks[last_block_index]) {
       blocks[last_block_index] = allocate_new_block();
     }
     last_elem_offset = 0;
+  } else if (last_elem_offset == CHUNK_SIZE - 1) {
+    ++last_block_index;
+    if (!blocks[last_block_index]) {
+      blocks[last_block_index] = allocate_new_block();
+    }
+    last_elem_offset = 0;
+  } else {
+    ++last_elem_offset;
   }
   blocks[last_block_index][last_elem_offset] = x;
   ++size_;
@@ -446,7 +454,7 @@ void Deque<T>::reallocate_blocks(size_type new_number_of_blocks, bool isFirstTim
     new_blocks[i] = nullptr;
   }
   size_type new_first_block_index = new_number_of_blocks / 3;
-  for (size_type i = 0; i < number_of_blocks; ++i) {
+  for (size_type i = 0; i < last_block_index - first_block_index + 1; ++i) {
     new_blocks[new_first_block_index + i] = blocks[first_block_index + i];
   }
   last_block_index = new_first_block_index + last_block_index - first_block_index;
@@ -537,6 +545,7 @@ void test1() {
   }
 
   assert(s == ss);
+  std::cout << "Test1 passed" << std::endl;
 }
 
 void test2() {
@@ -565,6 +574,8 @@ void test2() {
   }
 
   assert(ss == "3456");
+
+  std::cout << "Test2 passed" << std::endl;
 }
 
 void test3() {
@@ -651,9 +662,41 @@ void test4() {
   std::cout << "Test4 passed" << std::endl;
 }
 
+void test5() {
+  Deque<int> d;
+
+  d.push_back(1);
+  d.push_front(2);
+
+  auto left_ptr = &*d.begin();
+  auto right_ptr = &*(d.end() - 1);
+
+  d.push_back(3);
+  d.push_front(4);
+  auto left = *d.begin();
+  auto right = *(d.end() - 1);
+  d.print_blocks();
+  for (int i = 0; i < 20'000; ++i) {
+    d.push_front(i);
+  }
+
+  std::string s;
+  s += std::to_string(left);
+  s += std::to_string(right);
+
+  s += std::to_string(*left_ptr);
+  s += std::to_string(*right_ptr);
+  // for (auto it = left; it <= right; ++it) {
+  //     s += std::to_string(*it);
+  // }
+  assert(s == "4321");
+  std::cout << "Test5 passed" << std::endl;
+}
+
 int main() {
-  // test1();
-  // test2();
-  // test3();
+  test1();
+  test2();
+  test3();
   test4();
+  test5();
 }
