@@ -29,6 +29,10 @@ class Deque {
 
     base_iterator(pointer_to_chunk chunk_ptr, pointer_to_elem elem_ptr);
     base_iterator(const base_iterator<IsConst>& other);
+
+    template <bool B = IsConst, typename = std::enable_if_t<B>>
+    base_iterator(const base_iterator<false>& other);
+
     base_iterator& operator++();
     base_iterator& operator--();
     base_iterator& operator+=(difference_type n);
@@ -46,12 +50,15 @@ class Deque {
     bool operator<=(const base_iterator<IsConst>& other) const;
 
     reference operator*() const;
+    pointer operator->() const;
 
     void print();
 
    private:
     pointer_to_chunk block_ptr;
     pointer_to_elem current;
+    template <bool>
+    friend class base_iterator;
   };
 
   using iterator = base_iterator<false>;
@@ -67,8 +74,10 @@ class Deque {
   Deque& operator=(std::initializer_list<T>);
 
   iterator begin() noexcept;
+  const_iterator begin() const noexcept;
   const_iterator cbegin() const noexcept;
   iterator end() noexcept;
+  const_iterator end() const noexcept;
   const_iterator cend() const noexcept;
 
   bool empty() const noexcept;
@@ -88,6 +97,7 @@ class Deque {
   void pop_back();
   void pop_front();
   void clear();
+  void erase(iterator iterator);
 
   // TODO: Remove prints ???
   void print_blocks();

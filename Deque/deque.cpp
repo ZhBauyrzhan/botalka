@@ -5,6 +5,7 @@
 #include <cstddef>
 #include <cstdio>
 #include <iostream>
+#include <ostream>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -20,6 +21,12 @@ Deque<T>::base_iterator<IsConst>::base_iterator(typename base_iterator::pointer_
 template <typename T>
 template <bool IsConst>
 Deque<T>::base_iterator<IsConst>::base_iterator(const Deque<T>::base_iterator<IsConst>& other)
+    : block_ptr(other.block_ptr), current(other.current) {}
+
+template <typename T>
+template <bool IsConst>
+template <bool B, typename>
+Deque<T>::base_iterator<IsConst>::base_iterator(const base_iterator<false>& other)
     : block_ptr(other.block_ptr), current(other.current) {}
 
 template <typename T>
@@ -142,9 +149,15 @@ template <bool IsConst>
 Deque<T>::base_iterator<IsConst>::reference Deque<T>::base_iterator<IsConst>::operator*() const {
   return *current;
 }
+
 template <typename T>
 template <bool IsConst>
+Deque<T>::base_iterator<IsConst>::pointer Deque<T>::base_iterator<IsConst>::operator->() const {
+  return current;
+}
 
+template <typename T>
+template <bool IsConst>
 void Deque<T>::base_iterator<IsConst>::print() {
   std::cout << "Printing iterator" << std::endl;
   std::cout << "block_ptr " << block_ptr << std::endl;
@@ -234,6 +247,12 @@ Deque<T>::iterator Deque<T>::begin() noexcept {
 }
 
 template <typename T>
+Deque<T>::const_iterator Deque<T>::begin() const noexcept {
+  if (empty()) return const_iterator(nullptr, nullptr);
+  return const_iterator(blocks + first_block_index, blocks[first_block_index] + first_elem_offset);
+}
+
+template <typename T>
 Deque<T>::const_iterator Deque<T>::cbegin() const noexcept {
   if (empty()) return end();
   return const_iterator(blocks + first_block_index, blocks[first_block_index] + first_elem_offset);
@@ -249,6 +268,18 @@ Deque<T>::iterator Deque<T>::end() noexcept {
     elem_ptr = *block_ptr;
   }
   return iterator(block_ptr, elem_ptr);
+}
+
+template <typename T>
+Deque<T>::const_iterator Deque<T>::end() const noexcept {
+  if (empty()) return begin();
+  auto block_ptr = blocks + last_block_index;
+  auto elem_ptr = blocks[last_block_index] + last_elem_offset + 1;
+  if (elem_ptr == *block_ptr + CHUNK_SIZE) {
+    ++block_ptr;
+    elem_ptr = *block_ptr;
+  }
+  return const_iterator(block_ptr, elem_ptr);
 }
 
 template <typename T>
@@ -313,6 +344,21 @@ void Deque<T>::push_back(const T& x) {
 }
 
 template <typename T>
+typename Deque<T>::iterator Deque<T>::insert(const_iterator position, const T& x) {
+  size_type index = position - cbegin();
+  if (index == size_) {
+    push_back(x);
+    return end() - 1;
+  }
+  push_back(T{});
+  for (size_type i = size_ - 1; i > index; --i) {
+    (*this)[i] = (*this)[i - 1];
+  }
+  (*this)[index] = x;
+  return begin() + index;
+}
+
+template <typename T>
 void Deque<T>::pop_back() {
   std::pair<size_type, size_type> prev_pos = previous_position(last_block_index, last_elem_offset);
   last_block_index = prev_pos.first;
@@ -326,6 +372,14 @@ void Deque<T>::pop_front() {
   first_block_index = next_pos.first;
   first_elem_offset = next_pos.second;
   --size_;
+}
+
+template <typename T>
+void Deque<T>::erase(Deque<T>::base_iterator<false> it) {
+  for (iterator i = it; i + 1 != end(); ++i) {
+    *i = *(i + 1);
+  }
+  pop_back();
 }
 
 template <typename T>
@@ -550,18 +604,56 @@ void test3() {
   std::cout << "Test3 passed" << std::endl;
 }
 
+struct S {
+  int x = 0;
+  double y = 0.0;
+};
+
+void test4() {
+  Deque<S> d(5, {1, 2.0});
+  const Deque<S>& cd = d;
+
+  static_assert(!std::is_assignable_v<decltype(*cd.begin()), S>);
+  static_assert(std::is_assignable_v<decltype(*d.begin()), S>);
+  static_assert(!std::is_assignable_v<decltype(*d.cbegin()), S>);
+
+  static_assert(!std::is_assignable_v<decltype(*cd.end()), S>);
+  static_assert(std::is_assignable_v<decltype(*d.end()), S>);
+  static_assert(!std::is_assignable_v<decltype(*d.cend()), S>);
+
+  assert(cd.size() == 5);
+
+  auto it = d.begin() + 2;
+  auto cit = cd.end() - 3;
+
+  it->x = 5;
+  assert(cit->x == 5);
+  d.erase(d.begin() + 0);
+  d.erase(d.begin() + 3);
+  assert(d.size() == 3);
+
+  auto dd = cd;
+
+  dd.pop_back();
+  dd.insert(dd.begin(), {3, 4.0});
+  dd.insert(dd.begin() + 2, {4, 5.0});
+  std::string s;
+  for (const auto& x : dd) {
+    s += std::to_string(x.x);
+  }
+  assert(s == "3145");
+
+  std::string ss;
+  for (const auto& x : d) {
+    ss += std::to_string(x.x);
+  }
+  assert(ss == "151");
+  std::cout << "Test4 passed" << std::endl;
+}
+
 int main() {
-  // Deque<int> d(10, 2);
-  // std::cout << sizeof(d) << "\n";
-  // {
-  //   Deque<int> d2(d);
-  //   int cnt = 0;
-  //   for (auto i : d) {
-  //     std::cout << cnt++ << ' ' << i << '\n';
-  //   }
-  //   std::cout << d[0];
-  // }
   // test1();
   // test2();
-  test3();
+  // test3();
+  test4();
 }
