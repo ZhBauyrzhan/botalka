@@ -181,6 +181,7 @@ Deque<T>::Deque(const Deque& other)
   for (size_type i = 0; i < number_of_blocks; ++i) {
     blocks[i] = nullptr;
   }
+  if (!size_) return;
   for (size_type block_n = first_block_index; block_n <= last_block_index; ++block_n) {
     blocks[block_n] = static_cast<T*>(operator new(sizeof(T) * CHUNK_SIZE));
     size_type end_index = block_n == last_block_index ? last_elem_offset + 1 : CHUNK_SIZE;
@@ -874,6 +875,13 @@ void testDefault() {
   std::cout << "Test default passed" << std::endl;
 }
 
+void testCopy() {
+  Deque<NotDefaultConstructible> without_default;
+  Deque<NotDefaultConstructible> copy = without_default;
+  assert((copy.size() == 0));
+  std::cout << "Test copy passed" << std::endl;
+}
+
 }  // namespace TestsByUnrealf1
 
 int main() {
@@ -883,8 +891,9 @@ int main() {
   test4();
   test5();
   test6();
+  test7();
   TestsByUnrealf1::testDefault();
-  // TestsByUnrealf1::testCopy();
+  TestsByUnrealf1::testCopy();
   // TestsByUnrealf1::testWithSize();
   // TestsByUnrealf1::testAssignment();
   // TestsByUnrealf1::testStaticAsserts();
