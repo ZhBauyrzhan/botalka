@@ -728,6 +728,38 @@ void test6() {
   std::cout << "Test6 passed" << std::endl;
 }
 
+struct Explosive {
+  int x = 0;
+  Explosive(int x) : x(x) {}
+  Explosive(const Explosive&) {
+    if (x) throw std::runtime_error("Boom!");
+  }
+};
+
+void test7() {
+  Deque<Explosive> d;
+  d.push_back(Explosive(0));
+
+  for (int i = 0; i < 30'000; ++i) {
+    auto it = d.begin();
+    auto x = it->x;
+    size_t sz = d.size();
+    try {
+      if (i % 2)
+        d.push_back(Explosive(1));
+      else
+        d.push_front(Explosive(1));
+    } catch (...) {
+      assert(it == d.begin());
+      assert(d.begin()->x == x);
+      assert(d.size() == sz);
+    }
+
+    d.push_back(Explosive(0));
+  }
+  std::cout << "Test7 passed" << std::endl;
+}
+
 int main() {
   test1();
   test2();
@@ -735,4 +767,5 @@ int main() {
   test4();
   test5();
   test6();
+  test7();
 }
