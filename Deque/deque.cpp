@@ -759,6 +759,122 @@ void test7() {
   }
   std::cout << "Test7 passed" << std::endl;
 }
+namespace TestsByUnrealf1 {
+struct Fragile {
+  Fragile(int durability, int data) : durability(durability), data(data) {}
+  ~Fragile() = default;
+
+  // for std::swap
+  Fragile(Fragile&& other) : Fragile() { *this = other; }
+
+  Fragile(const Fragile& other) : Fragile() { *this = other; }
+
+  Fragile& operator=(const Fragile& other) {
+    durability = other.durability - 1;
+    data = other.data;
+    if (durability <= 0) {
+      throw 2;
+    }
+    return *this;
+  }
+
+  int durability;
+  int data;
+
+ private:
+  Fragile() {}
+};
+
+struct Explosive {
+  struct Safeguard {};
+
+  inline static bool exploded = false;
+
+  Explosive() : should_explode(true) { throw 1; }
+
+  Explosive(Safeguard) : should_explode(false) {}
+
+  Explosive(const Explosive&) : should_explode(true) { throw 2; }
+
+  // TODO: is this ok..?
+  Explosive& operator=(const Explosive&) { return *this; }
+
+  ~Explosive() { exploded |= should_explode; }
+
+ private:
+  const bool should_explode;
+};
+
+struct DefaultConstructible {
+  DefaultConstructible() { data = default_data; }
+
+  int data = default_data;
+  inline static const int default_data = 117;
+};
+
+struct NotDefaultConstructible {
+  NotDefaultConstructible() = delete;
+  NotDefaultConstructible(int input) : data(input) {}
+  int data;
+
+  auto operator<=>(const NotDefaultConstructible&) const = default;
+};
+
+struct CountedException : public std::exception {};
+
+template <int when_throw>
+struct Counted {
+  inline static int counter = 0;
+
+  Counted() {
+    ++counter;
+    if (counter == when_throw) {
+      --counter;
+      throw CountedException();
+    }
+  }
+
+  Counted(const Counted&) : Counted() {}
+
+  ~Counted() { --counter; }
+};
+
+template <typename iter, typename T>
+struct CheckIter {
+  using traits = std::iterator_traits<iter>;
+
+  static_assert(std::is_same_v<std::remove_cv_t<typename traits::value_type>, std::remove_cv_t<T>>);
+  static_assert(std::is_same_v<typename traits::pointer, T*>);
+  static_assert(std::is_same_v<typename traits::reference, T&>);
+  static_assert(
+      std::is_same_v<typename traits::iterator_category, std::random_access_iterator_tag>);
+
+  static_assert(std::is_same_v<decltype(std::declval<iter>()++), iter>);
+  static_assert(std::is_same_v<decltype(++std::declval<iter>()), iter&>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() + 5), iter>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() += 5), iter&>);
+
+  static_assert(std::is_same_v<decltype(std::declval<iter>() - std::declval<iter>()),
+                               typename traits::difference_type>);
+  static_assert(std::is_same_v<decltype(*std::declval<iter>()), T&>);
+
+  static_assert(std::is_same_v<decltype(std::declval<iter>() < std::declval<iter>()), bool>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() <= std::declval<iter>()), bool>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() > std::declval<iter>()), bool>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() >= std::declval<iter>()), bool>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() == std::declval<iter>()), bool>);
+  static_assert(std::is_same_v<decltype(std::declval<iter>() != std::declval<iter>()), bool>);
+};
+
+void testDefault() {
+  Deque<int> defaulted;
+  assert((defaulted.size() == 0));
+  Deque<NotDefaultConstructible> without_default;
+  assert((without_default.size() == 0));
+  std::cout << "Test default passed" << std::endl;
+}
+
+}  // namespace TestsByUnrealf1
 
 int main() {
   test1();
@@ -767,5 +883,21 @@ int main() {
   test4();
   test5();
   test6();
+  TestsByUnrealf1::testDefault();
+  // TestsByUnrealf1::testCopy();
+  // TestsByUnrealf1::testWithSize();
+  // TestsByUnrealf1::testAssignment();
+  // TestsByUnrealf1::testStaticAsserts();
+  // TestsByUnrealf1::testOperatorSubscript();
+  // TestsByUnrealf1::testStaticAssertsAccess();
+  // TestsByUnrealf1::testStaticAssertsIterators();
+  // TestsByUnrealf1::testIteratorsArithmetic();
+  // TestsByUnrealf1::testIteratorsComparison();
+  // TestsByUnrealf1::testIteratorsAlgorithms();
+  // TestsByUnrealf1::testPushAndPop();
+  // TestsByUnrealf1::testInsertAndErase();
+  // TestsByUnrealf1::testExceptions();
+  // TestsByUnrealf1::testStrongGuarantee();
+
   test7();
 }
