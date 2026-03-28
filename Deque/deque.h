@@ -37,8 +37,8 @@ class Deque {
     base_iterator& operator--();
     base_iterator& operator+=(difference_type n);
     base_iterator& operator-=(difference_type n);
-    base_iterator operator+(difference_type n);
-    base_iterator operator-(difference_type n);
+    base_iterator operator+(difference_type n) const;
+    base_iterator operator-(difference_type n) const;
     difference_type operator-(const base_iterator<IsConst>& other) const;
     base_iterator operator++(int);
 
@@ -63,6 +63,8 @@ class Deque {
 
   using iterator = base_iterator<false>;
   using const_iterator = base_iterator<true>;
+  using reverse_iterator = std::reverse_iterator<iterator>;
+  using const_reverse_iterator = std::reverse_iterator<const_iterator>;
   Deque();
   Deque(const Deque& other);
   Deque(const size_type size_, const T& value);
@@ -75,15 +77,20 @@ class Deque {
 
   iterator begin() noexcept;
   const_iterator begin() const noexcept;
+  reverse_iterator rbegin() noexcept;
+  const_reverse_iterator rbegin() const noexcept;
   const_iterator cbegin() const noexcept;
   iterator end() noexcept;
   const_iterator end() const noexcept;
+
+  reverse_iterator rend() noexcept;
+  const_reverse_iterator rend() const noexcept;
   const_iterator cend() const noexcept;
 
   bool empty() const noexcept;
   size_type size() const;
-  reference operator[](size_type index);
-  const_reference operator[](size_type index) const;
+  reference operator[](size_type index) noexcept;
+  const_reference operator[](size_type index) const noexcept;
   reference at(size_type index);
   const_reference at(size_type index) const;
   reference front();
@@ -104,6 +111,7 @@ class Deque {
   void print_vals();
 
  private:
+  struct PrivateConstuctorTag {};
   static const size_type CHUNK_SIZE{32};
   static const size_type increase_coefficient{3};
   size_type size_;
@@ -114,7 +122,7 @@ class Deque {
   size_type last_block_index;
   size_type last_elem_offset;
 
-  Deque(size_type size_, size_type number_of_blocks);
+  Deque(size_type size_, size_type number_of_blocks, PrivateConstuctorTag);
   void reallocate_blocks(size_type new_number_of_blocks, bool isFirstTime);
   void swap(Deque<T>& other);
   std::pair<size_type, size_type> next_position(size_type cur_block_index,

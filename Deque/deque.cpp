@@ -1,12 +1,12 @@
 #include "deque.h"
 
 #include <cassert>
-#include <chrono>
-#include <climits>
 #include <cstddef>
 #include <cstdio>
+#include <iomanip>
 #include <iostream>
 #include <ostream>
+#include <random>
 #include <stdexcept>
 #include <type_traits>
 #include <utility>
@@ -33,6 +33,9 @@ Deque<T>::base_iterator<IsConst>::base_iterator(const base_iterator<false>& othe
 template <typename T>
 template <bool IsConst>
 Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator++() {
+  if (block_ptr == nullptr) {
+    return *this;
+  }
   ++current;
   if (current == *block_ptr + CHUNK_SIZE) {
     ++block_ptr;
@@ -44,8 +47,9 @@ Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator++()
 template <typename T>
 template <bool IsConst>
 Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator--() {
+  if (block_ptr == nullptr) return *this;
   --current;
-  if (current == *block_ptr) {
+  if (current < *block_ptr) {
     --block_ptr;
     current = *block_ptr + CHUNK_SIZE - 1;
   }
@@ -54,6 +58,9 @@ Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator--()
 template <typename T>
 template <bool IsConst>
 Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator+=(difference_type n) {
+  if (block_ptr == nullptr) {
+    return *this;
+  }
   difference_type offset = current - *block_ptr;
   difference_type new_offset = offset + n;
   difference_type block_shift = new_offset / (difference_type)CHUNK_SIZE;
@@ -79,7 +86,8 @@ Deque<T>::base_iterator<IsConst>& Deque<T>::base_iterator<IsConst>::operator-=(d
 
 template <typename T>
 template <bool IsConst>
-Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator+(difference_type n) {
+Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator+(
+    difference_type n) const {
   base_iterator<IsConst> tmp = *this;
   tmp += n;
   return tmp;
@@ -87,7 +95,8 @@ Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator+(dif
 
 template <typename T>
 template <bool IsConst>
-Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator-(difference_type n) {
+Deque<T>::base_iterator<IsConst> Deque<T>::base_iterator<IsConst>::operator-(
+    difference_type n) const {
   base_iterator<IsConst> tmp = *this;
   tmp -= n;
   return tmp;
@@ -97,6 +106,9 @@ template <typename T>
 template <bool IsConst>
 Deque<T>::base_iterator<IsConst>::difference_type Deque<T>::base_iterator<IsConst>::operator-(
     const Deque<T>::base_iterator<IsConst>& other) const {
+  if (block_ptr == nullptr && other.block_ptr == nullptr) {
+    return 0;
+  }
   return ((block_ptr - other.block_ptr) * CHUNK_SIZE + (current - *block_ptr) -
           (other.current - *other.block_ptr));
 }
@@ -167,7 +179,7 @@ void Deque<T>::base_iterator<IsConst>::print() {
 }
 
 template <typename T>
-Deque<T>::Deque() : Deque(0ul, 0ul) {}
+Deque<T>::Deque() : Deque(0ul, 0ul, Deque::PrivateConstuctorTag()) {}
 
 template <typename T>
 Deque<T>::Deque(const Deque& other)
@@ -192,14 +204,18 @@ Deque<T>::Deque(const Deque& other)
 }
 
 template <typename T>
-Deque<T>::Deque(size_type size_, const T& value) : Deque(size_, size_ / CHUNK_SIZE + 1) {
+Deque<T>::Deque(size_type size_, const T& value)
+    : Deque(size_, (size_ / CHUNK_SIZE + 1) * Deque::increase_coefficient,
+            Deque::PrivateConstuctorTag()) {
+  // std::cout << this->size() << " " << std::endl;
   for (auto& i : *this) {
     i = T{value};
+    // std::cout << ++cnt << std::endl;
   }
 }
-
 template <typename T>
-Deque<T>::Deque(size_t size_) : Deque(size_, (size_ / CHUNK_SIZE + 1)) {}
+Deque<T>::Deque(size_t size_)
+    : Deque(size_, (size_ / CHUNK_SIZE + 1), Deque::PrivateConstuctorTag()) {}
 
 template <typename T>
 Deque<T>::~Deque() {
@@ -229,14 +245,14 @@ Deque<T>::size_type Deque<T>::size() const {
 }
 
 template <typename T>
-Deque<T>::reference Deque<T>::operator[](size_type index) {
+Deque<T>::reference Deque<T>::operator[](size_type index) noexcept {
   auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
   auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
   return blocks[block_index][elem_offset];
 }
 
 template <typename T>
-Deque<T>::const_reference Deque<T>::operator[](size_type index) const {
+Deque<T>::const_reference Deque<T>::operator[](size_type index) const noexcept {
   auto block_index = first_block_index + (index + first_elem_offset) / CHUNK_SIZE;
   auto elem_offset = (index + first_elem_offset) % CHUNK_SIZE;
   return blocks[block_index][elem_offset];
@@ -252,6 +268,16 @@ template <typename T>
 Deque<T>::const_iterator Deque<T>::begin() const noexcept {
   if (empty()) return const_iterator(nullptr, nullptr);
   return const_iterator(blocks + first_block_index, blocks[first_block_index] + first_elem_offset);
+}
+
+template <typename T>
+Deque<T>::reverse_iterator Deque<T>::rbegin() noexcept {
+  return reverse_iterator(end());
+}
+
+template <typename T>
+Deque<T>::const_reverse_iterator Deque<T>::rbegin() const noexcept {
+  return const_reverse_iterator(end());
 }
 
 template <typename T>
@@ -275,6 +301,28 @@ Deque<T>::iterator Deque<T>::end() noexcept {
 template <typename T>
 Deque<T>::const_iterator Deque<T>::end() const noexcept {
   if (empty()) return begin();
+  auto block_ptr = blocks + last_block_index;
+  auto elem_ptr = blocks[last_block_index] + last_elem_offset + 1;
+  if (elem_ptr == *block_ptr + CHUNK_SIZE) {
+    ++block_ptr;
+    elem_ptr = *block_ptr;
+  }
+  return const_iterator(block_ptr, elem_ptr);
+}
+
+template <typename T>
+Deque<T>::reverse_iterator Deque<T>::rend() noexcept {
+  return reverse_iterator(begin());
+}
+
+template <typename T>
+Deque<T>::const_reverse_iterator Deque<T>::rend() const noexcept {
+  return const_iterator(begin());
+}
+
+template <typename T>
+Deque<T>::const_iterator Deque<T>::cend() const noexcept {
+  if (empty()) return cbegin();
   auto block_ptr = blocks + last_block_index;
   auto elem_ptr = blocks[last_block_index] + last_elem_offset + 1;
   if (elem_ptr == *block_ptr + CHUNK_SIZE) {
@@ -359,7 +407,7 @@ typename Deque<T>::iterator Deque<T>::insert(const_iterator position, const T& x
     push_back(x);
     return end() - 1;
   }
-  push_back(T{});
+  push_back(x);
   for (size_type i = size_ - 1; i > index; --i) {
     (*this)[i] = (*this)[i - 1];
   }
@@ -410,7 +458,7 @@ void Deque<T>::print_vals() {
 }
 
 template <typename T>
-Deque<T>::Deque(size_type size_, size_type number_of_blocks)
+Deque<T>::Deque(size_type size_, size_type number_of_blocks, Deque::PrivateConstuctorTag)
     : size_(size_), number_of_blocks(number_of_blocks), blocks(new chunk_type[number_of_blocks]) {
   if (size_ == 0) {
     first_block_index = 0;
@@ -422,6 +470,7 @@ Deque<T>::Deque(size_type size_, size_type number_of_blocks)
     first_elem_offset = 0;
     last_block_index = first_block_index + size_ / CHUNK_SIZE;
     last_elem_offset = (size_ - 1) % CHUNK_SIZE;
+    // this->print_vals();
     for (size_type i = first_block_index; i <= last_block_index; ++i) {
       blocks[i] = allocate_new_block();
     }
@@ -495,10 +544,13 @@ std::pair<typename Deque<T>::size_type, typename Deque<T>::size_type> Deque<T>::
 
 template <typename T>
 Deque<T>::chunk_type Deque<T>::allocate_new_block() {
+  if constexpr (std::is_default_constructible_v<T>) {
+    return new T[CHUNK_SIZE];
+  }
   return reinterpret_cast<chunk_type>(new char[(CHUNK_SIZE * sizeof(T))]);
 }
-
 }  // namespace bauyr
+
 template <typename T>
 using Deque = bauyr::Deque<T>;
 
@@ -882,6 +934,315 @@ void testCopy() {
   std::cout << "Test copy passed" << std::endl;
 }
 
+void testWithSize() {
+  int size = 17;
+  int value = 14;
+  Deque<int> simple(size);
+  assert((simple.size() == size_t(size)) &&
+         std::all_of(simple.begin(), simple.end(), [](int item) { return item == 0; }));
+  Deque<NotDefaultConstructible> less_simple(size, value);
+  std::cout << (less_simple.size() == size_t(size)) << ' '
+            << std::all_of(less_simple.begin(), less_simple.end(),
+                           [&](const auto& item) { return item.data == value; })
+            << std::endl;
+  assert((less_simple.size() == size_t(size)) &&
+         std::all_of(less_simple.begin(), less_simple.end(),
+                     [&](const auto& item) { return item.data == value; }));
+  Deque<DefaultConstructible> default_constructor(size);
+  std::cout << std::endl;
+  assert(std::all_of(default_constructor.begin(), default_constructor.end(),
+                     [](const auto& item)
+
+                     { return item.data == DefaultConstructible::default_data; }));
+
+  std::cout << "Test with size passed" << std::endl;
+}
+
+void testAssignment() {
+  Deque<int> first(10, 10);
+  Deque<int> second(9, 9);
+  first = second;
+  assert((first.size() == second.size()) && (first.size() == 9) &&
+         std::equal(first.begin(), first.end(), second.begin()));
+  std::cout << "Test assignment passed" << std::endl;
+}
+
+void testStaticAsserts() {
+  using T1 = int;
+  using T2 = NotDefaultConstructible;
+
+  static_assert(std::is_default_constructible_v<Deque<T1>>, "should have default constructor");
+  static_assert(std::is_default_constructible_v<Deque<T2>>, "should have default constructor");
+  static_assert(std::is_copy_constructible_v<Deque<T1>>, "should have copy constructor");
+  static_assert(std::is_copy_constructible_v<Deque<T2>>, "should have copy constructor");
+  static_assert(std::is_constructible_v<Deque<T1>, int>, "should have constructor from int");
+  static_assert(std::is_constructible_v<Deque<T2>, int>, "should have constructor from int");
+  static_assert(std::is_constructible_v<Deque<T1>, int, const T1&>,
+                "should have constructor from int and const T&");
+  static_assert(std::is_constructible_v<Deque<T2>, int, const T2&>,
+                "should have constructor from int and const T&");
+
+  static_assert(std::is_copy_assignable_v<Deque<T1>>, "should have assignment operator");
+  static_assert(std::is_copy_assignable_v<Deque<T2>>, "should have assignment operator");
+  std::cout << "Test static asserts passed" << std::endl;
+}
+
+void testOperatorSubscript() {
+  Deque<size_t> defaulted(1300, 43);
+  std::cout << defaulted.size() << std::endl;
+  std::cout << defaulted[0] << std::endl;
+  assert((defaulted[0] == defaulted[1280]) && (defaulted[0] == 43));
+  assert((defaulted.at(0) == defaulted[1280]) && (defaulted.at(0) == 43));
+  int caught = 0;
+  try {
+    defaulted.at(size_t(-1));
+  } catch (std::out_of_range& e) {
+    ++caught;
+  }
+
+  try {
+    defaulted.at(1300);
+  } catch (std::out_of_range& e) {
+    ++caught;
+  }
+
+  assert(caught == 2);
+  std::cout << "Test testOperatorSubscript  passed" << std::endl;
+}
+
+void testStaticAssertsAccess() {
+  Deque<size_t> defaulted;
+  const Deque<size_t> constant;
+  static_assert(std::is_same_v<decltype(defaulted[0]), size_t&>);
+  static_assert(std::is_same_v<decltype(defaulted.at(0)), size_t&>);
+  static_assert(std::is_same_v<decltype(constant[0]), const size_t&>);
+  static_assert(std::is_same_v<decltype(constant.at(0)), const size_t&>);
+
+  static_assert(noexcept(defaulted[0]), "operator[] should not throw");
+  static_assert(!noexcept(defaulted.at(0)), "at() can throw");
+  std::cout << "Test testStaticAssertsAccess  passed" << std::endl;
+}
+
+void testStaticAssertsIterators() {
+  CheckIter<Deque<int>::iterator, int> iter;
+  std::ignore = iter;
+  CheckIter<decltype(std::declval<Deque<int>>().rbegin()), int> reverse_iter;
+  std::ignore = reverse_iter;
+  CheckIter<decltype(std::declval<Deque<int>>().cbegin()), const int> const_iter;
+  std::ignore = const_iter;
+
+  static_assert(std::is_convertible_v<decltype(std::declval<Deque<int>>().begin()),
+                                      decltype(std::declval<Deque<int>>().cbegin())>,
+                "should be able to construct const iterator from non const iterator");
+  static_assert(!std::is_convertible_v<decltype(std::declval<Deque<int>>().cbegin()),
+                                       decltype(std::declval<Deque<int>>().begin())>,
+                "should NOT be able to construct iterator from const iterator");
+  std::cout << "Test testStaticAssertsIterators  passed" << std::endl;
+}
+
+void testIteratorsArithmetic() {
+  Deque<int> empty;
+
+  assert((empty.end() - empty.begin()) == 0);
+
+  assert((empty.begin() + 0 == empty.end()) && (empty.end() - 0 == empty.begin()));
+  Deque<int> one(1);
+  auto iter2 = one.end();
+  assert(((--iter2) == one.begin()));
+
+  assert((empty.rend() - empty.rbegin()) == 0);
+  assert((empty.rbegin() + 0 == empty.rend()) && (empty.rend() - 0 == empty.rbegin()));
+  auto r_iter = empty.rbegin();
+
+  assert((r_iter++ == empty.rbegin()));
+
+  assert((empty.cend() - empty.cbegin()) == 0);
+  assert((empty.cbegin() + 0 == empty.cend()) && (empty.cend() - 0 == empty.cbegin()));
+  auto c_iter = empty.cbegin();
+
+  assert((c_iter++ == empty.cbegin()));
+
+  Deque<int> d(1000, 3);
+
+  assert(size_t((d.end() - d.begin())) == d.size());
+  assert((d.begin() + d.size() == d.end()) && (d.end() - d.size() == d.begin()));
+  std::cout << "testIteratorsArithmetic passed" << std::endl;
+}
+
+void testIteratorsComparison() {
+  Deque<int> d(1000, 3);
+
+  assert(d.end() > d.begin());
+  assert(d.cend() > d.cbegin());
+  assert(d.rend() > d.rbegin());
+  std::cout << "testIteratorsComparison passed" << std::endl;
+}
+
+void testIteratorsAlgorithms() {
+  Deque<int> d(1000, 3);
+
+  std::iota(d.begin(), d.end(), 13);
+  std::mt19937 g(31415);
+  std::shuffle(d.begin(), d.end(), g);
+  std::sort(d.rbegin(), d.rbegin() + 500);
+  std::reverse(d.begin(), d.end());
+  auto sorted_border = std::is_sorted_until(d.begin(), d.end());
+  // std::copy(d.begin(), d.end(), std::ostream_iterator<int>(std::cout, " "));
+  // std::cout << std::endl;
+  assert(sorted_border - d.begin() == 500);
+  std::cout << "testIteratorsAlgorithms passed" << std::endl;
+}
+
+void testPushAndPop() {
+  Deque<NotDefaultConstructible> d(10000, {1});
+  auto start_size = d.size();
+
+  auto middle = &(*(d.begin() + start_size / 2));  // 5000
+  auto& middle_element = *middle;
+  auto begin = &(*d.begin());
+  auto end = &(*d.rbegin());
+
+  auto middle2 = &(*((d.begin() + start_size / 2) + 2000));  // 7000
+
+  // remove 400 elements
+  for (size_t i = 0; i < 400; ++i) {
+    d.pop_back();
+  }
+
+  // begin and middle pointers are still valid
+  assert(begin->data == 1);
+  assert(middle->data == 1);
+  assert(middle_element.data == 1);
+  assert(middle2->data == 1);
+
+  end = &*d.rbegin();
+
+  // 800 elemets removed in total
+  for (size_t i = 0; i < 400; ++i) {
+    d.pop_front();
+  }
+
+  // and and middle iterators are still valid
+  assert(end->data == 1);
+  assert(middle->data == 1);
+  assert(middle_element.data == 1);
+  assert(middle2->data == 1);
+
+  // removed 9980 items in total
+  for (size_t i = 0; i < 4590; ++i) {
+    d.pop_front();
+    d.pop_back();
+  }
+
+  assert(d.size() == 20);
+  assert(middle_element.data == 1);
+  assert(middle->data == 1 && middle->data == 1);
+  assert(std::all_of(d.begin(), d.end(), [](const auto& item) { return item.data == 1; }));
+
+  begin = &*d.begin();
+  end = &*d.rbegin();
+
+  for (size_t i = 0; i < 5500; ++i) {
+    d.push_back({2});
+    d.push_front({2});
+  }
+
+  assert((*begin).data == 1);
+  assert((*end).data == 1);
+  assert(d.begin()->data == 2);
+  assert(d.size() == 5500 * 2 + 20);
+  assert(std::count(d.begin(), d.end(), NotDefaultConstructible{1}) == 20);
+  assert(std::count(d.begin(), d.end(), NotDefaultConstructible{2}) == 11000);
+  std::cout << "testPushAndPop passed" << std::endl;
+}
+
+void testInsertAndErase() {
+  Deque<NotDefaultConstructible> d(10000, {1});
+  auto start_size = d.size();
+
+  d.insert(d.begin() + start_size / 2, NotDefaultConstructible{2});
+  assert(d.size() == start_size + 1);
+  d.erase(d.begin() + start_size / 2 - 1);
+  assert(d.size() == start_size);
+
+  assert(size_t(std::count(d.begin(), d.end(), NotDefaultConstructible{1})) == start_size - 1);
+  assert(std::count(d.begin(), d.end(), NotDefaultConstructible{2}) == 1);
+
+  Deque<NotDefaultConstructible> copy;
+  for (const auto& item : d) {
+    copy.insert(copy.end(), item);
+  }
+  // std::copy(d.cbegin(), d.cend(), std::inserter(copy, copy.begin()));
+
+  assert(d.size() == copy.size());
+  assert(std::equal(d.begin(), d.end(), copy.begin()));
+  std::cout << "testInsertAndErase passed" << std::endl;
+}
+
+void testExceptions() {
+  try {
+    Deque<Counted<17>> d(100);
+  } catch (CountedException& e) {
+    assert(Counted<17>::counter == 0);
+  } catch (...) {
+    // should have caught same exception as thrown by Counted
+    assert(false);
+  }
+
+  try {
+    Deque<Explosive> d(100);
+  } catch (...) {
+  }
+
+  try {
+    Deque<Explosive> d;
+  } catch (...) {
+    // no objects should have been created
+    assert(false);
+  }
+  assert(Explosive::exploded == false);
+
+  try {
+    Deque<Explosive> d;
+    auto safe = Explosive(Explosive::Safeguard{});
+    d.push_back(safe);
+  } catch (...) {
+  }
+
+  // Destructor should not be called for an object
+  // with no finihshed constructor
+  // the only destructor called - safe explosive with the safeguard
+  assert(Explosive::exploded == false);
+  std::cout << "testExceptions passed" << std::endl;
+}
+
+void testStrongGuarantee() {
+  const size_t size = 20'000;
+  const size_t initial_data = 100;
+  Deque<Fragile> d(size, Fragile(size, initial_data));
+
+  auto is_intact = [&] {
+    return d.size() == size && std::all_of(d.begin(), d.end(), [initial_data](const auto& item) {
+             return item.data == initial_data;
+           });
+  };
+  try {
+    d.insert(d.begin() + size / 2, Fragile(0, initial_data + 1));
+  } catch (...) {
+    // have to throw
+    assert(is_intact());
+  }
+  try {
+    // for those who like additional copies...
+    d.insert(d.begin() + size / 2, Fragile(3, initial_data + 2));
+  } catch (...) {
+    // might throw depending on the implementation
+    // if it DID throw, then deque should be untouched
+    assert(is_intact());
+  }
+  std::cout << "testStrongGuarantee passed" << std::endl;
+}
+
 }  // namespace TestsByUnrealf1
 
 int main() {
@@ -894,19 +1255,17 @@ int main() {
   test7();
   TestsByUnrealf1::testDefault();
   TestsByUnrealf1::testCopy();
-  // TestsByUnrealf1::testWithSize();
-  // TestsByUnrealf1::testAssignment();
-  // TestsByUnrealf1::testStaticAsserts();
-  // TestsByUnrealf1::testOperatorSubscript();
-  // TestsByUnrealf1::testStaticAssertsAccess();
-  // TestsByUnrealf1::testStaticAssertsIterators();
-  // TestsByUnrealf1::testIteratorsArithmetic();
-  // TestsByUnrealf1::testIteratorsComparison();
-  // TestsByUnrealf1::testIteratorsAlgorithms();
-  // TestsByUnrealf1::testPushAndPop();
-  // TestsByUnrealf1::testInsertAndErase();
-  // TestsByUnrealf1::testExceptions();
-  // TestsByUnrealf1::testStrongGuarantee();
-
-  test7();
+  TestsByUnrealf1::testWithSize();
+  TestsByUnrealf1::testAssignment();
+  TestsByUnrealf1::testStaticAsserts();
+  TestsByUnrealf1::testOperatorSubscript();
+  TestsByUnrealf1::testStaticAssertsAccess();
+  TestsByUnrealf1::testStaticAssertsIterators();
+  TestsByUnrealf1::testIteratorsArithmetic();
+  TestsByUnrealf1::testIteratorsComparison();
+  TestsByUnrealf1::testIteratorsAlgorithms();
+  TestsByUnrealf1::testPushAndPop();
+  TestsByUnrealf1::testInsertAndErase();
+  TestsByUnrealf1::testExceptions();
+  TestsByUnrealf1::testStrongGuarantee();
 }
